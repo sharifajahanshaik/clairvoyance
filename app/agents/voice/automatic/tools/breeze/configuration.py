@@ -108,27 +108,17 @@ async def _handle_create_surcharge_rule(params: FunctionCallParams):
     """Internal helper: Creates one or more new surcharge rules for a specific payment type. Ensures rules are unique and not already present."""
     rules = params.arguments.get("rules", [])
     payment_type = params.arguments.get("paymentType", "COD")
-    payment_method_type = params.arguments.get("paymentMethodType", "CASH")
+    # Fix: Don't default PARTIAL to CASH, require explicit payment method type for PARTIAL
+    if payment_type == "PARTIAL":
+        payment_method_type = params.arguments.get("paymentMethodType", "*")
+        payment_method = params.arguments.get("paymentMethod", "*")
+    else:
+        payment_method_type = params.arguments.get("paymentMethodType", "CASH")
+        payment_method = params.arguments.get("paymentMethod", "*")
     logger.info(
         f"Received paymentMethodType: '{payment_method_type}' (type: {type(payment_method_type)})"
     )
 
-    if payment_method_type in ["CREDIT", "DEBIT"]:
-        payment_method = "CREDIT/DEBIT"
-    elif payment_method_type == "UPI":
-        payment_method = "UPI"
-    elif payment_method_type == "NB":
-        payment_method = "NB"
-    elif payment_method_type == "*":
-        payment_method = "*"
-    elif payment_method_type == "WALLET":
-        payment_method = "WALLET"
-    else:
-        payment_method = "CASH"
-
-    logger.info(
-        f"Derived paymentMethod: '{payment_method}' from paymentMethodType: '{payment_method_type}'"
-    )
     if not rules:
         await params.result_callback(
             {
@@ -188,9 +178,14 @@ async def _handle_create_surcharge_rule(params: FunctionCallParams):
             )
             existing_rules = []
 
-        # Check for overlaps with existing rules BEFORE processing
+        # Check for overlaps - no need to modify rules, the processing function handles this
         has_overlaps, overlap_details = detect_surcharge_rule_overlaps(
-            rules, existing_rules, payment_type, payment_method_type, payment_method
+            rules,
+            existing_rules,
+            payment_type,
+            payment_method_type,
+            payment_method,
+            shop_id,
         )
 
         if has_overlaps:
@@ -201,24 +196,9 @@ async def _handle_create_surcharge_rule(params: FunctionCallParams):
             logger.error(error_message)
             await params.result_callback({"success": False, "error": error_message})
             return
-
-        # Add payment method details to each rule before validation
-        for i, rule in enumerate(rules):
-            if "paymentMethodType" not in rule:
-                rule["paymentMethodType"] = payment_method_type
-                logger.info(
-                    f"Rule {i}: Added paymentMethodType='{payment_method_type}'"
-                )
-            if "paymentMethod" not in rule:
-                rule["paymentMethod"] = payment_method
-                logger.info(f"Rule {i}: Added paymentMethod='{payment_method}'")
-            logger.info(
-                f"Rule {i} final state: paymentMethodType='{rule.get('paymentMethodType')}', paymentMethod='{rule.get('paymentMethod')}'"
-            )
-
         # SIMPLIFIED VALIDATION: Use the new streamlined function
         success, result = validate_and_process_surcharge_rules(
-            rules, payment_type, payment_method_type, payment_method
+            rules, payment_type, payment_method_type, payment_method, shop_id
         )
 
         if not success:
@@ -351,26 +331,14 @@ async def _handle_update_surcharge_rule(params: FunctionCallParams):
     """Internal helper: Simple update - delete all existing rules for payment type, then create new ones."""
     rules = params.arguments.get("rules", [])
     payment_type = params.arguments.get("paymentType", "COD")
-    payment_method_type = params.arguments.get("paymentMethodType")
-    logger.info(
-        f"UPDATE: Received paymentMethodType: '{payment_method_type}' (type: {type(payment_method_type)})"
-    )
-
-    if payment_method_type in ["CREDIT", "DEBIT"]:
-        payment_method = "CREDIT/DEBIT"
-    elif payment_method_type == "UPI":
-        payment_method = "UPI"
-    elif payment_method_type == "NB":
-        payment_method = "NB"
-    elif payment_method_type == "*":
-        payment_method = "*"
-    elif payment_method_type == "WALLET":
-        payment_method = "WALLET"
+    if payment_type == "PARTIAL":
+        payment_method_type = params.arguments.get("paymentMethodType", "*")
+        payment_method = params.arguments.get("paymentMethod", "*")
     else:
-        payment_method = "CASH"
-
+        payment_method_type = params.arguments.get("paymentMethodType", "CASH")
+        payment_method = params.arguments.get("paymentMethod", "*")
     logger.info(
-        f"UPDATE: Derived paymentMethod: '{payment_method}' from paymentMethodType: '{payment_method_type}'"
+        f"Received paymentMethodType: '{payment_method_type}' (type: {type(payment_method_type)})"
     )
 
     # Basic validation
@@ -401,15 +369,9 @@ async def _handle_update_surcharge_rule(params: FunctionCallParams):
         # Step 1: Validate new rules FIRST (before making any changes)
         api_rules = None
         if rules:
-            # Add payment method details to each rule before validation
-            for rule in rules:
-                if "paymentMethodType" not in rule:
-                    rule["paymentMethodType"] = payment_method_type
-                if "paymentMethod" not in rule:
-                    rule["paymentMethod"] = payment_method
-
+            # Process rules without modifying user input
             success, result = validate_and_process_surcharge_rules(
-                rules, payment_type, payment_method_type, payment_method
+                rules, payment_type, payment_method_type, payment_method, shop_id
             )
             if not success:
                 await params.result_callback(
@@ -436,7 +398,6 @@ async def _handle_update_surcharge_rule(params: FunctionCallParams):
             for r in existing_rules
             if r.get("paymentType") == payment_type
             and r.get("paymentMethodType") == payment_method_type
-            and r.get("paymentMethod") == payment_method
         ]
         deleted_count = 0
 
@@ -798,8 +759,7 @@ manage_surcharge_tools_function = FunctionSchema(
                     },
                     "paymentMethod": {
                         "type": "string",
-                        "enum": ["CASH", "CREDIT/DEBIT", "NB", "UPI", "WALLET", "*"],
-                        "description": "Internal payment method field - automatically derived from paymentMethodType. CASH→CASH, CREDIT/DEBIT→CREDIT/DEBIT, NB→NB, UPI→UPI, WALLET→WALLET, *→*. This field is auto-generated and optional to specify.",
+                        "description": "Internal payment method field - automatically derived from paymentMethodType. This field is auto-generated and optional to specify.",
                     },
                 },
                 "required": ["rate"],
@@ -813,6 +773,15 @@ manage_surcharge_tools_function = FunctionSchema(
             "type": "string",
             "enum": ["COD", "PARTIAL"],
             "description": "Payment type for the surcharge rules. 'COD' for Cash on Delivery rules, 'PARTIAL' for partial payment rules. Defaults to 'COD'.",
+        },
+        "paymentMethodType": {
+            "type": "string",
+            "enum": ["CASH", "CARD", "NB", "UPI", "WALLET", "*"],
+            "description": "Specifies the payment method type for the surcharge rules. Use 'CASH' for cash payments, 'CARD' for CARD payments, 'NB' for net banking, 'UPI' for UPI payments, 'WALLET' for wallet payments, or '*' for ALL payment methods. Defaults to 'CASH' if not specified.",
+        },
+        "paymentMethod": {
+            "type": "string",
+            "description": "Specifies the specific payment method identifier. Use '*' for all payment methods within the payment method type. Defaults to '*' if not specified.",
         },
     },
     required=["action"],
