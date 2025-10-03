@@ -39,9 +39,6 @@ from app.agents.voice.automatic.processors.llm_spy import handle_confirmation_re
 from app.agents.voice.automatic.services.fal import FalSmartTurnService
 from app.agents.voice.automatic.services.mcp import init_breeze_mcp_tools
 from app.agents.voice.automatic.services.mem0.memory import ImprovedMem0MemoryService
-from app.agents.voice.automatic.tools.charts import (
-    tool_functions as chart_tool_functions,
-)
 from app.agents.voice.automatic.types import (
     Mode,
     TTSProvider,
@@ -55,6 +52,7 @@ from app.agents.voice.automatic.utils.session_context import (
 )
 from app.core import config
 from app.core.logger import configure_session_logger, logger
+from app.core.transport.http_client import get_proxy_config
 
 from .processors import LLMSpyProcessor
 from .processors.ptt_vad_filter import PTTVADFilter
@@ -263,7 +261,7 @@ async def run_normal_mode(args):
     )
 
     # Personalize the system prompt if a user name is provided
-    system_prompt = get_system_prompt(args.user_name, tts_provider)
+    system_prompt = get_system_prompt(args.user_name, tts_provider, args.shop_id)
 
     # Configure VAD - use pre-initialized model if available
     global _silero_vad_cache
@@ -339,6 +337,20 @@ async def run_normal_mode(args):
         "Breeze Automatic Voice Agent",
         daily_params,
     )
+
+    # Configure proxy for WebRTC connections if available
+    proxy_url = get_proxy_config()
+    if proxy_url:
+        logger.info(f"Configuring Daily WebRTC proxy: {proxy_url}")
+        try:
+            # Set proxy URL on the Daily CallClient
+            transport._client._client.set_proxy_url(proxy_url)
+            logger.info("Daily WebRTC proxy configured successfully")
+        except Exception as e:
+            logger.error(f"Failed to configure Daily WebRTC proxy: {e}")
+            # Don't fail initialization - continue without proxy
+    else:
+        logger.debug("Proxy Configuration Skipped.")
 
     stt = get_stt_service(voice_name=voice_name.value)
 

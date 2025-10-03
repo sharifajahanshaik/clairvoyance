@@ -2,6 +2,9 @@ from app.agents.voice.automatic.prompts.system.base import get_base_system_promp
 from app.agents.voice.automatic.prompts.system.charts import (
     get_chart_visualization_instructions,
 )
+from app.agents.voice.automatic.prompts.system.performance_directives import (
+    get_combined_directives,
+)
 from app.agents.voice.automatic.prompts.system.personalization import append_user_info
 from app.agents.voice.automatic.prompts.system.tool_scope import (
     get_tool_scope_instrucations,
@@ -20,7 +23,9 @@ from app.core.logger import logger
 from app.services.langfuse.prompts import fetch_prompt
 
 
-def get_system_prompt(user_name: str | None, tts_provider: TTSProvider | None) -> str:
+def get_system_prompt(
+    user_name: str | None, tts_provider: TTSProvider | None, shop_id: str | None
+) -> str:
     """
     Generates a personalized system prompt based on the user's name and TTS service.
     First attempts to fetch from LangFuse, then falls back to hardcoded prompt.
@@ -40,6 +45,7 @@ def get_system_prompt(user_name: str | None, tts_provider: TTSProvider | None) -
     else:
         logger.info("Using fallback hardcoded prompt")
         prompt = get_base_system_prompt()
+        prompt += get_combined_directives(shop_id)
 
     # Append dynamic components that are always added locally
     prompt += get_chart_visualization_instructions()
