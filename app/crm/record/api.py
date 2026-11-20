@@ -31,6 +31,7 @@ from app.core.logger import logger
 from app.core.logger.context import set_log_context
 from app.crm.auth import crm_admin_user, verify_s2s_caller
 from app.crm.record import catalog, ingress
+from app.crm.record.extractors import CALL_REPORT_SOURCES
 from app.crm.record.ingest import ingest_event
 from app.crm.record.schemas import (
     CatalogEntry,
@@ -123,6 +124,13 @@ async def push_event_route(
     _caller: str = Depends(verified_caller),
 ) -> EventReceipt:
     set_log_context(component="crm.ingest.push", merchant_id=event.merchant_id)
+    if event.source in CALL_REPORT_SOURCES:
+        # Our own call reports are written in-process, never through this
+        # door; one pushed here could name any of the merchant's runs.
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"source {event.source!r} is reserved for Buddy's own reports",
+        )
     try:
         event_id = await ingest_event(
             merchant_id=event.merchant_id,

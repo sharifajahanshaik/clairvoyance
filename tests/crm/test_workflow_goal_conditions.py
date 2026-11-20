@@ -325,7 +325,7 @@ class _Spine:
     async def live_workflows(self, merchant_id: str) -> List[Workflow]:
         return list(self.flows)
 
-    async def open_runs_for_customer(self, *_: Any) -> List[EnrollmentRun]:
+    async def open_runs_for_customer(self, *_: Any, **__: Any) -> List[EnrollmentRun]:
         return list(self.runs)
 
     async def get_definition(

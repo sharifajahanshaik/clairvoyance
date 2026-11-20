@@ -580,3 +580,19 @@ def test_every_ingest_route_reads_through_the_cap() -> None:
     assert {r.path for r in routes} == {"/events", "/schemas"}
     assert {r.path for r in mounted} == {"/ingest/events", "/ingest/schemas"}
     assert all(isinstance(r, record_api.IngestRoute) for r in routes + mounted)
+
+
+def test_push_refuses_buddys_own_call_report_source(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A call report pushed from outside could name any of the merchant's
+    runs; ours are written in-process, so the door refuses the name."""
+    _allow_auth(monkeypatch)
+
+    async def fake_ingest(**kwargs: Any) -> Optional[str]:
+        raise AssertionError("a reserved source must not be stored")
+
+    monkeypatch.setattr(record_api, "ingest_event", fake_ingest)
+    with pytest.raises(HTTPException) as caught:
+        asyncio.run(push_event_route(_event(source="telephony"), "m1"))
+    assert caught.value.status_code == 422

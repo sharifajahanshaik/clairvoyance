@@ -1,10 +1,16 @@
 """Query-builder laws for the outreach module: $1 params only, tenancy
 predicates present, the claim's lease semantics, idempotent stamps."""
 
+import asyncio
 import json
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any, List
 
+import pytest
+
+from app.crm.outreach.db.accessors import enrollment as enrollment_accessor
 from app.crm.outreach.db.queries.enrollment import (
     admission_facts_query,
     advance_run_query,
@@ -75,7 +81,29 @@ def test_open_runs_for_customer_is_merchant_first_and_open_only() -> None:
     sql, params = open_runs_for_customer_query("m1", "c-1")
     assert "WHERE merchant_id = $1 AND customer_id = $2" in sql
     assert "status <> 'exited'" in sql
+    # Names no key and no run: the release statement, no UNION.
+    assert "UNION" not in sql
     assert params == ["m1", "c-1"]
+
+
+def test_open_runs_also_reads_a_keyed_plans_runs_by_key() -> None:
+    """A merchant's customer id on a second phone resolves to a second
+    customer; the key half still finds the run it opened, merchant-first
+    and open-only like the customer half."""
+    sql, params = open_runs_for_customer_query("m1", "c-2", [("wf-1", "fk-9")])
+    assert "unnest($3::uuid[], $4::text[])" in sql
+    assert "ON e.workflow_id = k.workflow_id" in sql
+    assert "AND e.enrollment_key = k.enrollment_key" in sql
+    assert "WHERE e.merchant_id = $1 AND e.status <> 'exited'" in sql
+    assert params == ["m1", "c-2", ["wf-1"], ["fk-9"], []]
+
+
+def test_open_runs_also_reads_the_runs_a_letter_names_by_id() -> None:
+    sql, params = open_runs_for_customer_query("m1", "c-2", run_ids=["run-1"])
+    assert (
+        "WHERE merchant_id = $1 AND id = ANY($5::uuid[]) AND status <> 'exited'" in sql
+    )
+    assert params == ["m1", "c-2", [], [], ["run-1"]]
 
 
 def test_goal_cancel_is_time_aware_on_the_entry_event_and_null_safe() -> None:
@@ -316,3 +344,28 @@ def test_an_event_moves_a_parked_run_too() -> None:
     assert "status IN ('waiting', 'parked')" in where_clause
     assert "status = 'waiting'" in set_clause
     assert "CASE WHEN status = 'parked' THEN 0 ELSE attempts END" in set_clause
+
+
+def test_the_accessor_passes_keys_and_run_ids_to_the_read(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The entry tests use a fake accessor and the tests above only read SQL
+    text: this pins that the real accessor hands both halves to the query."""
+    seen: List[Any] = []
+
+    class _Conn:
+        async def fetch(self, query: str, *values: Any) -> List[Any]:
+            seen.extend(values)
+            return []
+
+    @asynccontextmanager
+    async def connection():
+        yield _Conn()
+
+    monkeypatch.setattr(enrollment_accessor, "crm_connection", connection)
+    asyncio.run(
+        enrollment_accessor.open_runs_for_customer(
+            "m1", "c-2", keys=[("wf-1", "fk-9")], run_ids=["run-1"]
+        )
+    )
+    assert seen == ["m1", "c-2", ["wf-1"], ["fk-9"], ["run-1"]]
