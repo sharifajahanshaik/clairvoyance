@@ -1,0 +1,387 @@
+{
+  "id": "71615d5b-98ad-421c-b274-e9f07c2e965f",
+  "reseller_id": "BB_SHOPIFY",
+  "merchant_id": "keuvzb-pi.myshopify.com",
+  "created_at": "2026-03-16T10:32:46.871812Z",
+  "updated_at": "2026-10-27T08:21:28.928496Z",
+  "current_version": 8,
+  "name": "order-confirmation",
+  "flow": {
+    "nodes": [
+      {
+        "functions": [
+          {
+            "hooks": [
+              {
+                "name": "update_outcome_in_database",
+                "expected_fields": {
+                  "outcome": {
+                    "value": "BUSY",
+                    "source": "static"
+                  },
+                  "unsupported_language_code": {
+                    "source": "llm"
+                  }
+                }
+              }
+            ],
+            "required": [
+              "unsupported_language_code"
+            ],
+            "properties": {
+              "unsupported_language_code": {
+                "type": "string",
+                "description": "Set to 'none' by default. If the customer asked to speak in an unsupported language (e.g., Telugu, Kannada, Tamil, Malayalam, Bengali) at any point, set this to the 2-letter ISO language code (e.g., 'te', 'ta', 'kn', 'ml', 'bn'). DO NOT trigger this tool prematurely just to set this field; only set it when naturally concluding the call."
+              }
+            },
+            "description": "Call this when the customer is busy or says it is not a good time and stays busy after you ask for two minutes, when the customer is abusive or clearly refuses to talk, or when the wrong person picks up.",
+            "function_name": "user_busy",
+            "transition_to": "end_conversation_node"
+          },
+          {
+            "hooks": [
+              {
+                "name": "update_outcome_in_database",
+                "expected_fields": {
+                  "outcome": {
+                    "value": "CONFIRM",
+                    "source": "static"
+                  },
+                  "unsupported_language_code": {
+                    "source": "llm"
+                  }
+                }
+              }
+            ],
+            "required": [
+              "unsupported_language_code"
+            ],
+            "properties": {
+              "unsupported_language_code": {
+                "type": "string",
+                "description": "Set to 'none' by default. If the customer asked to speak in an unsupported language (e.g., Telugu, Kannada, Tamil, Malayalam, Bengali) at any point, set this to the 2-letter ISO language code (e.g., 'te', 'ta', 'kn', 'ml', 'bn'). DO NOT trigger this tool prematurely just to set this field; only set it when naturally concluding the call."
+              }
+            },
+            "description": "Call this function ONLY when: (1) you have FULLY read ALL order details (items, price, AND address) AND asked the customer if everything is correct, and the customer then confirms, OR (2) the customer explicitly and unambiguously says 'confirm', 'confirm order', or similar at ANY POINT during the call, including if they interrupt you while you are reading the order details. NEVER call this if the customer merely says a generic 'yes', 'haan', or 'okay' while you are reading details (treat those as just acknowledgments and keep reading).",
+            "function_name": "confirm_order",
+            "transition_to": "end_conversation_node"
+          },
+          {
+            "hooks": [
+              {
+                "name": "update_outcome_in_database",
+                "expected_fields": {
+                  "outcome": {
+                    "value": "CANCEL",
+                    "source": "static"
+                  },
+                  "cancellation_reason": {
+                    "source": "llm"
+                  },
+                  "unsupported_language_code": {
+                    "source": "llm"
+                  }
+                }
+              }
+            ],
+            "required": [
+              "cancellation_reason",
+              "unsupported_language_code"
+            ],
+            "properties": {
+              "cancellation_reason": {
+                "type": "string",
+                "description": "The reason for cancelling the order."
+              },
+              "unsupported_language_code": {
+                "type": "string",
+                "description": "Set to 'none' by default. If the customer asked to speak in an unsupported language (e.g., Telugu, Kannada, Tamil, Malayalam, Bengali) at any point, set this to the 2-letter ISO language code (e.g., 'te', 'ta', 'kn', 'ml', 'bn'). DO NOT trigger this tool prematurely just to set this field; only set it when naturally concluding the call."
+              }
+            },
+            "description": "Call this when the customer says they want to cancel or no longer want the order, and you have their reason: at once if the reason came with the request, or after they answer or decline the reason question.",
+            "function_name": "cancel_order",
+            "transition_to": "end_conversation_node"
+          },
+          {
+            "hooks": [
+              {
+                "name": "update_outcome_in_database",
+                "expected_fields": {
+                  "outcome": {
+                    "value": "ADDRESS_UPDATED",
+                    "source": "static"
+                  },
+                  "updated_address": {
+                    "source": "llm"
+                  },
+                  "unsupported_language_code": {
+                    "source": "llm"
+                  }
+                }
+              }
+            ],
+            "required": [
+              "updated_address",
+              "unsupported_language_code"
+            ],
+            "properties": {
+              "updated_address": {
+                "type": "string",
+                "description": "The updated delivery details (address and/or phone number) as provided and confirmed by the customer."
+              },
+              "unsupported_language_code": {
+                "type": "string",
+                "description": "Set to 'none' by default. If the customer asked to speak in an unsupported language (e.g., Telugu, Kannada, Tamil, Malayalam, Bengali) at any point, set this to the 2-letter ISO language code (e.g., 'te', 'ta', 'kn', 'ml', 'bn'). DO NOT trigger this tool prematurely just to set this field; only set it when naturally concluding the call."
+              }
+            },
+            "description": "Call this after you have read back the complete updated address and the customer says it is correct. Pass the full updated address. When the customer is changing the address, this is the call that confirms the order.",
+            "function_name": "update_address_and_confirm",
+            "transition_to": "end_conversation_node"
+          }
+        ],
+        "node_name": "initial",
+        "pre_actions": [
+          {
+            "args": {
+              "duration": 4
+            },
+            "type": "function",
+            "handler": "mute_stt"
+          }
+        ],
+        "post_actions": [],
+        "role_messages": [
+          {
+            "role": "system",
+            "content": "# ROLE & IDENTITY\nYou are Ram, a male support agent from the shop in the KNOWLEDGE BASE, calling the customer in the KNOWLEDGE BASE to confirm their Cash on Delivery order. You are warm, polite and brief. If asked who you are, then reply that you are Ram from customer support. In Hindi use masculine verb forms (कर रहा हूँ, करूँगा, बताऊँगा).\n\n# GOAL\nEnd the call with exactly one tool call: confirm_order, cancel_order, update_address_and_confirm or user_busy. On this call you can change only the delivery address; size, color and quantity stay as ordered.\n\n# OUTPUT RULES\n- Your reply is only the words the customer hears: plain spoken sentences, at most two, under 40 words. Decide silently and make tool calls only through the tool mechanism.\n- Start with at most one short acknowledgement (जी., ठीक है., अच्छा., Okay.).\n- Call confirm_order, cancel_order, update_address_and_confirm and user_busy tool-only, with no spoken text; the closing line is spoken after the call.\n- Use your own words, except the lines in SCRIPTS, which you speak exactly, with the address spoken as in NUMBER AND ADDRESS READING RULES.\n\n# LANGUAGE RULES\n- Hindi is the default, in Devanagari, keeping English for order, confirm, cancel, address, pincode, update, size, color and all numbers. Switch to English when the customer asks for it or speaks a full English sentence, and stay in that language. If the customer speaks Telugu, Tamil, Kannada, Malayalam or Bengali, carry on in Hindi and pass that language code in the final tool call.\n\n# NUMBER AND ADDRESS READING RULES\n- Items: say \"quantity product name\", joined with commas and \"and\". For more than 3 items say only the count, for example \"4 items\".\n- Address (current and updated): every number in the address is spoken in English words, so your spoken text has only words and no digit characters (0-9). Before speaking, rewrite the full address with each pincode, house number, door number and phone number read digit by digit, one word per digit (0→zero, 1→one, 2→two, 3→three, 4→four, 5→five, 6→six, 7→seven, 8→eight, 9→nine), and other numbers as words (6th → sixth).\n  Example: \"1-1067, Park Road 6th Lane, 12/4B, 522503\" is spoken as \"one dash one zero six seven, Park Road sixth Lane, one two slash four B, five two two five zero three\".\n- In tool calls, pass the address with plain digits, and the pincode as one continuous number.\n- The price is already in words; say it as given.\n\n# CONVERSATION FLOW\n1. The greeting has already been spoken and ends with \"Is this a good time to talk?\". The customer's first yes means they are free to talk, so your next reply is ORDER DETAILS. If they only say hello, ask briefly whether now is a good time.\n2. Confirm: after you ask the confirmation question at the end of ORDER DETAILS, any agreement from the customer (हाँ, जी, ठीक है, okay, सही है, yes, confirm) means call confirm_order. The customer can also confirm at any point by saying confirm. While you are still reading ORDER DETAILS, a short yes means they are listening, so finish reading. When the reply is a question, follow step 7.\n3. Address change: take the details the customer gives (area, landmark, street, house number or pincode) and apply them to the current address. Ask for a part only when the customer says that part is wrong without giving the new value. Then speak ADDRESS READ-BACK with the full new address, and when the customer agrees, call update_address_and_confirm.\n4. Requests this call cannot handle (size, color, quantity, delivery charges, offers): say in one line that this call can confirm, cancel or update the address and the shop's team will help with the rest, then ask whether to confirm the order as it is. When they agree, call confirm_order. When they say they want to cancel, follow step 5. When the customer says something must change but not what, ask whether it is the address or something else.\n5. Cancel: when the customer says they want to cancel or no longer want the order, call cancel_order straight away only if they gave a reason. Otherwise check once that they are sure, ask a short reason, and then call cancel_order after they answer or decline.\n6. Busy: when the customer is busy, ask once whether two minutes are fine; if they are still busy, call user_busy. When the customer is abusive or clearly refuses to talk, call user_busy. When the customer sounds impatient, keep it short and ask the confirmation question.\n7. Questions: answer from the KNOWLEDGE BASE and FAQs, then ask the confirmation question again. When they don't cover it, say the shop's team will help with that and return to the confirmation. When the same reply carries both a clear yes and a question, call confirm_order; the closing line answers the question.\n8. When the customer asks whether you can hear them, or says hello mid-call, say you can hear them and repeat your last question. When the customer is silent, say only: [hi] Hello, क्या आप line पर हैं? [en] Hello, are you on the line?\n9. When a reply is unclear or does not answer your question, ask the customer in one short line to say it again.\n\n# FAQs\n<faqs>\n- Delivery time depends on the location; for exact details the customer can contact the shop's support.\n- The order can be cancelled on this call; an order cancelled before dispatch is not shipped.\n- Anyone at the address can receive the order and pay.\n- For a damaged or wrong item, the customer can ask the shop's support for a return or replacement; returns follow the store policy.\n- COD orders get this call to make sure no wrong shipment goes out.\n- There are no extra charges beyond the price told on this call.\n- Tracking details come by SMS or WhatsApp once the order ships.\n</faqs>\n\n# SCRIPTS\n<scripts>\nSpeak the items as in the Items rule and every address as in NUMBER AND ADDRESS READING RULES. [NEW ADDRESS] is the full updated address after the change.\n\nORDER DETAILS\n[hi] Okay. आपने, {items} order किया है. {total_price} का. Address है, {customer_address}. सब ठीक है ना, मैं order confirm कर दूँ?\n[en] Okay. You ordered, {items}. for {total_price}. Delivery address is: {customer_address}. Is that all correct so I can confirm your order?\n\nADDRESS READ-BACK\n[hi] ठीक है. मैंने updated address note कर लिया है. [NEW ADDRESS]. यही सही है ना? Order confirm कर दूँ?\n[en] Okay. I have noted the updated address as [NEW ADDRESS]. Is that correct? Should I confirm your order?\n</scripts>\n\n# KNOWLEDGE BASE\n<knowledge_base>\n- Shop: {shop_name}\n- Customer: {customer_name}\n- Mobile: {customer_mobile_number}\n- Items: {items}\n- Price: {total_price}\n- Address: {customer_address}\n</knowledge_base>"
+          }
+        ]
+      },
+      {
+        "functions": [],
+        "node_name": "end_conversation_node",
+        "pre_actions": [
+          {
+            "type": "function",
+            "handler": "mute_stt"
+          }
+        ],
+        "post_actions": [
+          {
+            "type": "function",
+            "handler": "end_conversation"
+          }
+        ],
+        "task_messages": [
+          {
+            "role": "system",
+            "content": "<role>\nYou are the closing node.\n</role>\n\n<task>\nSay the final line for the action that was just taken, in the same language the assistant used most recently. If the customer's last reply also asked a question, first answer it in one short line from the order details and FAQs, or say the {shop_name} team will help with that, then speak the closing line. Ask no more questions.\n</task>\n\n<constraints>\n  <item>IF USER WAS BUSY (user_busy called):\n  [hi]: कोई बात नहीं. धन्यवाद. आपका दिन शुभ हो.\n  [en]: No problem. Thank you, have a nice day.\n  </item>\n\n  <item>IF DELIVERY DETAILS WERE UPDATED AND ORDER CONFIRMED (update_address_and_confirm called):\n  [hi]: धन्यवाद. आपका address update हो गया है और आपका order confirm हो गया है. आपका दिन शुभ हो.\n  [en]: Thank you. Your delivery details have been updated and your order is confirmed. Have a nice day.\n  </item>\n\n  <item>IF ORDER WAS CONFIRMED (confirm_order called):\n  [hi]: धन्यवाद. आपका order confirm हो गया है. आपका दिन शुभ हो.\n  [en]: Thank you. Your order is confirmed. Have a nice day.\n  </item>\n\n  <item>IF ORDER WAS CANCELLED (cancel_order called):\n  [hi]: ठीक है. आपका order cancel हो गया है. धन्यवाद, आपका दिन शुभ हो.\n  [en]: Alright. Your order has been cancelled. Thank you, have a nice day.\n  </item>\n</constraints>"
+          }
+        ]
+      }
+    ],
+    "initial_node": "initial",
+    "end_conversation_callbacks": [
+      "service_callback"
+    ]
+  },
+  "expected_payload_schema": {
+    "items": {
+      "type": "any"
+    },
+    "shop_name": {
+      "type": "string",
+      "function": "string_to_lowercase"
+    },
+    "total_price": {
+      "type": "number",
+      "function": "indian_number_to_speech"
+    },
+    "customer_name": {
+      "type": "string"
+    },
+    "customer_address": {
+      "type": "string",
+      "params": {
+        "words": [
+          "India"
+        ]
+      },
+      "function": "trim_words"
+    },
+    "customer_mobile_number": {
+      "type": "string",
+      "function": [
+        "extract_10_digit_mobile",
+        "digits_to_speech"
+      ]
+    }
+  },
+  "expected_callback_response_schema": {
+    "updated_address": {
+      "type": "string",
+      "optional": true
+    },
+    "cancellation_reason": {
+      "type": "string",
+      "optional": true
+    }
+  },
+  "configurations": {
+    "state_reducers": [],
+    "tool_arg_injection": [],
+    "client_context": null,
+    "ui_catalog": null,
+    "render_ui": null,
+    "ui_intents": null,
+    "flavor": null,
+    "tool_execution": null,
+    "plan_enforcement": null,
+    "stt_configuration": null,
+    "stt_language": null,
+    "soniox_context": null,
+    "payload_based_language_selection": false,
+    "tts_configuration": {
+      "provider": "elevenlabs",
+      "credential_id": null,
+      "voice_id": "iB2rIwm9cQCRGWoKDRtX",
+      "model": "eleven_flash_v2_5",
+      "language": null,
+      "speed": 0.8,
+      "stability": 0.5,
+      "similarity_boost": 0.75,
+      "volume": null,
+      "emotion": null,
+      "pitch": null,
+      "style_prompt": null,
+      "enable_ssml_parsing": null,
+      "enable_tts_caching": true
+    },
+    "tts_configuration_overrides": null,
+    "tts_selection_config": null,
+    "enable_background_sound": false,
+    "background_sound_file": null,
+    "background_sound_volume": 2,
+    "initial_greeting": "Hi {customer_name}. I'm Ram from {shop_name}. I'm calling to confirm your order. Is this a good time to talk?",
+    "quick_replies": [],
+    "greeting_tiles": [],
+    "enable_text_input": true,
+    "response_reveal": "stream",
+    "ivr_configuration": null,
+    "ivr_greeting": null,
+    "ivr_goodbye": null,
+    "ivr_priority": null,
+    "telephony_configuration": null,
+    "transfer_number": null,
+    "enable_mpc_transfer": false,
+    "vad_config": null,
+    "enable_inbound": false,
+    "enable_topic_evaluation": true,
+    "user_idle_configuration": {
+      "enabled": true,
+      "timeout": 7,
+      "idle_message": "The customer is silent. Follow the silence line in step 8.",
+      "max_retries": 2
+    },
+    "noise_filter": null,
+    "client_noise_cancellation": null,
+    "dial_tone": true,
+    "keyword_filter": {
+      "enabled": true,
+      "keywords": [
+        "h",
+        "he",
+        "hel",
+        "hell",
+        "hello",
+        "ह",
+        "h",
+        "हेलो",
+        "yes",
+        "हैलो",
+        "हॅलो",
+        "हेलो",
+        "हेल",
+        "हे",
+        "लो",
+        "हलो",
+        "हम्म",
+        "हम्",
+        "हम",
+        "hmm",
+        "hm",
+        "yeah",
+        "ओके",
+        "बोलिए",
+        "ha",
+        "acha",
+        "accha",
+        "ji",
+        "हाँ",
+        "हां",
+        "यस",
+        "य",
+        "हा",
+        "अच्छा",
+        "अच्छ",
+        "अच्",
+        "अच",
+        "अ",
+        "जी",
+        "ठीक",
+        "ठी",
+        "ठ",
+        "ஹ்ம்ம்",
+        "ஹ்ம்",
+        "சரி",
+        "హ్మ్",
+        "హ్మ్మ్",
+        "సరే",
+        "ಹ್ಮ್",
+        "ಹ್ಮ್ಮ್",
+        "ಸರಿ"
+      ],
+      "match_type": "exact"
+    },
+    "wake_phrase": null,
+    "mcp": null,
+    "knowledge_base": null,
+    "interruption": {
+      "mode": "enabled",
+      "min_words": 2
+    },
+    "llm_configurations": {
+      "provider": "aws_bedrock",
+      "sdk": null,
+      "model": "in.openai.gpt-5.6-luna",
+      "region": "ap-south-1",
+      "endpoint": null,
+      "api_key_name": "OPENAI_API_KEY",
+      "credential_id": null,
+      "temperature": 0.65,
+      "max_tokens": 500,
+      "extra_body": null,
+      "thinking": {
+        "enabled": true,
+        "reasoning_effort": "none",
+        "budget_tokens": null,
+        "thinking_budget": null,
+        "thinking_level": null
+      },
+      "tool_choice": "auto",
+      "function_call_timeout_secs": 10,
+      "prefill_system_prompt": false,
+      "realtime": null
+    },
+    "evaluator_config": null,
+    "hold_transfer": null,
+    "observers": null
+  },
+  "secrets": null,
+  "telephony_number_id": "ebd083e9-1225-4cfc-a051-922511454ca5",
+  "outbound_number_id": "ebd083e9-1225-4cfc-a051-922511454ca5",
+  "is_active": true,
+  "supported_channels": [
+    "voice"
+  ]
+}

@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Workflow Intelligence — Architecture Proposal</title>
+<style>
+:root{
+  --bg:#f5f7fb;--surface:#fff;--ink:#172033;--muted:#5d687c;--line:#e2e7f0;
+  --blue:#315ee8;--blue-soft:#edf2ff;--green:#12805c;--green-soft:#eaf8f2;
+  --amber:#a96512;--amber-soft:#fff5e7;--purple:#7651c9;--purple-soft:#f3efff;
+  --shadow:0 12px 34px rgba(25,39,72,.08);--radius:18px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.65 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+a{color:var(--blue);text-decoration:none}
+a:hover{text-decoration:underline}
+.wrap{max-width:1180px;margin:auto;padding:0 28px}
+.hero{background:linear-gradient(130deg,#111d3a 0%,#233e82 55%,#315ee8 100%);color:white;padding:76px 0 62px;position:relative;overflow:hidden}
+.hero:before,.hero:after{content:"";position:absolute;border:1px solid rgba(255,255,255,.14);border-radius:50%;width:430px;height:430px;right:-90px;top:-210px}
+.hero:after{width:300px;height:300px;right:210px;top:120px}
+.eyebrow{text-transform:uppercase;letter-spacing:.15em;font-size:.75rem;font-weight:800;opacity:.78}
+h1{font-size:clamp(2.4rem,5vw,4.4rem);line-height:1.05;letter-spacing:-.045em;margin:18px 0;max-width:850px}
+.hero p{font-size:1.15rem;color:#e1e9ff;max-width:800px;margin:0}
+.hero-meta{display:flex;gap:10px;flex-wrap:wrap;margin-top:28px}
+.pill{display:inline-flex;border:1px solid rgba(255,255,255,.25);border-radius:99px;padding:6px 12px;font-size:.82rem;color:#edf2ff;background:rgba(255,255,255,.08)}
+nav{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.94);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+.navinner{display:flex;gap:8px;overflow:auto;padding:10px 0;white-space:nowrap}
+nav a{font-size:.82rem;font-weight:700;color:#45516a;padding:7px 10px;border-radius:8px}
+nav a:hover{background:var(--blue-soft);text-decoration:none}
+main{padding:34px 0 80px}
+section{margin:28px 0 46px;scroll-margin-top:80px}
+h2{font-size:1.85rem;line-height:1.2;letter-spacing:-.025em;margin:0 0 12px}
+h3{font-size:1.15rem;margin:0 0 8px}
+h4{font-size:.98rem;margin:0 0 6px}
+.lead{font-size:1.08rem;color:#45516a;max-width:920px;margin:0 0 22px}
+.small{font-size:.88rem;color:var(--muted)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:22px;box-shadow:var(--shadow)}
+.grid{display:grid;gap:16px}
+.g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.g3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.g4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.kicker{font-size:.75rem;text-transform:uppercase;letter-spacing:.12em;font-weight:800;color:var(--blue)}
+.callout{border-left:4px solid var(--blue);background:var(--blue-soft);padding:16px 18px;border-radius:0 12px 12px 0;margin:18px 0}
+.callout.green{border-color:var(--green);background:var(--green-soft)}
+.callout.amber{border-color:#d28a2d;background:var(--amber-soft)}
+.callout.purple{border-color:var(--purple);background:var(--purple-soft)}
+.tag{display:inline-block;font-size:.72rem;font-weight:800;padding:4px 9px;border-radius:99px;background:#eef1f6;color:#4c5870}
+.tag.blue{background:var(--blue-soft);color:var(--blue)}
+.tag.green{background:var(--green-soft);color:var(--green)}
+.tag.amber{background:var(--amber-soft);color:var(--amber)}
+.tag.purple{background:var(--purple-soft);color:var(--purple)}
+.diagram{background:#fff;border:1px solid var(--line);border-radius:20px;padding:24px;box-shadow:var(--shadow)}
+.flow{display:flex;flex-direction:column;align-items:center;gap:9px}
+.node{width:min(760px,100%);border:1px solid var(--line);border-radius:14px;padding:16px 20px;text-align:center;background:#fff;position:relative}
+.node strong{display:block;font-size:1rem}
+.node span{display:block;color:var(--muted);font-size:.86rem;margin-top:3px}
+.node.blue{background:var(--blue-soft);border-color:#cbd7ff}
+.node.green{background:var(--green-soft);border-color:#bfe8d6}
+.node.purple{background:var(--purple-soft);border-color:#d9cdf9}
+.node.dark{background:#1b2a4a;color:white;border-color:#1b2a4a}
+.node.dark span{color:#d8e2ff}
+.arrow{color:#8b96aa;font-size:1.35rem;line-height:1}
+.branch{display:grid;grid-template-columns:1fr 1fr;gap:14px;width:min(760px,100%)}
+.branch .node{width:100%}
+.loop{border:1px dashed #9ba9c7;border-radius:16px;padding:14px 18px;width:min(760px,100%);text-align:center;color:#4c5c7c;background:#f8faff;font-size:.88rem}
+table{border-collapse:collapse;width:100%;background:white;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+th,td{text-align:left;padding:12px 14px;border-bottom:1px solid var(--line);vertical-align:top;font-size:.9rem}
+th{background:#f0f3f9;color:#35415b;font-size:.78rem;text-transform:uppercase;letter-spacing:.06em}
+tr:last-child td{border-bottom:0}
+ul,ol{padding-left:22px;margin:8px 0}
+li{margin:5px 0}
+.stepnum{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--blue-soft);color:var(--blue);font-weight:800;margin-right:8px}
+.scope{border-top:4px solid var(--blue)}
+.scope.node-s{border-color:#1b8b70}.scope.customer-s{border-color:#7651c9}.scope.merchant-s{border-color:#c17a25}
+.metric{font-size:1.7rem;font-weight:850;letter-spacing:-.04em}
+.muted{color:var(--muted)}
+.two-col{display:grid;grid-template-columns:1.15fr .85fr;gap:18px}
+.timeline{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.timeline .card{padding:16px}
+hr{border:0;border-top:1px solid var(--line);margin:24px 0}
+footer{background:#17233d;color:#d9e2f5;padding:34px 0}
+footer p{margin:6px 0;color:#aebbd4}
+.reveal{animation:rise .65s ease both}
+@keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+.pulse{animation:pulse 3.4s ease-in-out infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(49,94,232,0)}50%{box-shadow:0 0 0 7px rgba(49,94,232,.08)}}
+@media(max-width:850px){.g3,.g4{grid-template-columns:repeat(2,minmax(0,1fr))}.two-col{grid-template-columns:1fr}.timeline{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:600px){.wrap{padding:0 16px}.hero{padding:55px 0 44px}.g2,.g3,.g4,.branch{grid-template-columns:1fr}.timeline{grid-template-columns:1fr}h2{font-size:1.55rem}.card{padding:17px}.diagram{padding:14px}th,td{padding:9px;font-size:.82rem}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+<header class="hero">
+ <div class="wrap reveal">
+  <div class="eyebrow">Architecture proposal · For team review</div>
+  <h1>Workflow Intelligence</h1>
+  <p>A shared intelligence layer that studies workflow executions, identifies where business outcomes are being lost, investigates why, and recommends evidence-backed improvements.</p>
+  <div class="hero-meta">
+   <span class="pill">Architecture discussion</span><span class="pill">Workflow-level MVP</span><span class="pill">Rule-based vs agent-based</span><span class="pill">Implementation plan comes after review</span>
+  </div>
+ </div>
+</header>
+<nav><div class="wrap navinner">
+ <a href="#summary">Summary</a><a href="#context">Context</a><a href="#scopes">Scope</a><a href="#lifecycle">Lifecycle</a><a href="#architecture">Architecture</a><a href="#approaches">Two approaches</a><a href="#recommended">Recommendation</a><a href="#example">End-to-end example</a><a href="#triggers">Timing & cost</a><a href="#decisions">Review decisions</a>
+</div></nav>
+<main class="wrap">
+
+<section id="summary">
+ <div class="kicker">01 · Executive summary</div>
+ <h2>What are we proposing?</h2>
+ <p class="lead">Workflow Intelligence is an intelligent capability that uses workflow definitions, execution data, historical patterns, and business outcomes to understand, analyze, and continuously improve workflows across their lifecycle. It helps identify potential improvements before execution, make informed decisions during execution, and investigate execution results afterward to understand what worked, where outcomes were lost, why they happened, and how workflows can be optimized to achieve better business outcomes.</p>
+ <div class="grid g2">
+  <div class="card"><div class="kicker">What happened?</div><h3>Analytics</h3><p class="small">Measure outcomes, paths, drop-offs, retries, delays and changes across workflow executions.</p><span class="tag blue">Deterministic</span></div>
+  <div class="card"><div class="kicker">Why did it happen, and what can improve?</div><h3>Diagnostics</h3><p class="small">Investigate meaningful patterns, gather evidence, identify contributing factors and produce improvement recommendations.</p><span class="tag green">Agent-driven investigation</span></div>
+ </div>
+ <div class="callout green"><strong>Proposed direction:</strong> deterministic analytics identifies meaningful observations; an LLM agent investigates them using approved tools and produces evidence-backed findings and improvement recommendations. The LLM is invoked selectively, not for every event, call or enrollment.</div>
+</section>
+
+<section id="context">
+ <div class="kicker">02 · Product context</div>
+ <h2>Use existing platform capabilities and add the intelligence layer</h2>
+ <p class="lead">The platform already manages workflow definitions, enrollments, events, execution history and call-level evaluation. Workflow Intelligence uses these existing capabilities and adds cross-execution analysis, diagnosis and improvement recommendations. It is an integrated capability within the platform, not a separate system that replaces existing functionality.</p>
+ <div class="grid g2">
+  <div class="card">
+   <h3>Existing capabilities to consume</h3>
+   <ul>
+    <li>Workflow definitions, versions and configured goals/outcomes.</li>
+    <li>Enrollment records and workflow execution/step history.</li>
+    <li>Events and topics, which vary by workflow and merchant.</li>
+    <li>Call-level topic and outcome evaluation results.</li>
+    <li>Relevant customer and merchant context through existing services.</li>
+   </ul>
+  </div>
+  <div class="card">
+   <h3>What Workflow Intelligence adds</h3>
+   <ul>
+    <li>Population-level measurement of workflow performance.</li>
+    <li>Detection of meaningful changes and outcome leakage.</li>
+    <li>Evidence-driven investigation of possible contributing factors.</li>
+    <li>Evidence-backed workflow improvement recommendations.</li>
+    <li>A way to assess whether recommended changes actually helped, when evaluation data is available.</li>
+   </ul>
+  </div>
+ </div>
+ <div class="callout amber"><strong>Boundary:</strong> this proposal does not rebuild the workflow runtime, event ingestion, CRM, call evaluation or Centralised Memory. Memory remains owned by its existing team; Workflow Intelligence may consume relevant context through an agreed interface.</div>
+</section>
+
+<section id="scopes">
+ <div class="kicker">03 · Intelligence scope</div>
+ <h2>One platform, multiple possible scopes</h2>
+ <p class="lead">The long-term platform can support different scopes of intelligence. The first release should focus on workflow-level intelligence. Designing reusable contracts now can reduce future duplication, but it does not mean implementing all scopes in the MVP.</p>
+ <div class="grid g4">
+  <div class="card scope"><span class="tag green">MVP</span><h3>Workflow-level</h3><p><strong>How is this workflow performing, where are outcomes lost, and how can it improve?</strong></p><p class="small">Studies many enrollments and executions over a defined period.</p></div>
+  <div class="card scope node-s"><span class="tag">Future</span><h3>Node-level</h3><p><strong>How is a particular step behaving, and what should change about it?</strong></p><p class="small">Can reuse node-level metrics and diagnostic capabilities; runtime decisions are a separate extension.</p></div>
+  <div class="card scope customer-s"><span class="tag">Future</span><h3>Customer-level</h3><p><strong>What action is suitable for this particular customer?</strong></p><p class="small">Needs customer history/context and potentially real-time decisioning. It is not just a workflow report filtered by customer.</p></div>
+  <div class="card scope merchant-s"><span class="tag">Future</span><h3>Merchant-level</h3><p><strong>What is happening across this merchant's workflows and business outcomes?</strong></p><p class="small">Needs cross-workflow aggregation, merchant objectives and trade-off reasoning.</p></div>
+ </div>
+ <p class="small">These scopes are not a mandatory execution chain. They are different analytical/decision contexts that may share data foundations, tools, evidence formats and reasoning capabilities.</p>
+</section>
+
+<section id="lifecycle">
+ <div class="kicker">04 · Workflow lifecycle</div>
+ <h2>Pre, current and post workflow</h2>
+ <p class="lead">These describe when intelligence is used in the workflow lifecycle. They are not three separate intelligence engines.</p>
+ <div class="grid g3">
+  <div class="card"><span class="tag">Pre-workflow</span><h3>Before execution</h3><p>Use previously learned findings to help configure a workflow: retry strategy, timing, branching or other settings.</p><p class="small"><strong>Future use:</strong> intelligence-informed workflow design.</p></div>
+  <div class="card"><span class="tag amber">Current workflow</span><h3>During execution</h3><p>The existing workflow runtime processes events, evaluates conditions and executes actions. Future extensions may consume intelligence for runtime decisions.</p><p class="small"><strong>MVP boundary:</strong> do not add an LLM call to every event or enrollment.</p></div>
+  <div class="card"><span class="tag green">Post-workflow</span><h3>After/alongside executions</h3><p>Study accumulated executions, detect outcome gaps, diagnose contributing factors and recommend improvements.</p><p class="small"><strong>MVP focus:</strong> build this first.</p></div>
+ </div>
+ <div class="diagram">
+  <div class="flow">
+   <div class="node blue"><strong>PRE · Configure with prior evidence</strong><span>Historical findings inform workflow design and settings</span></div>
+   <div class="arrow">↓</div>
+   <div class="node dark"><strong>CURRENT · Existing workflow runtime</strong><span>Events → conditions → nodes/actions → enrollment outcomes</span></div>
+   <div class="arrow">↓</div>
+   <div class="node green"><strong>POST · Workflow Intelligence</strong><span>Analytics → Agent-driven diagnostics → Improvement recommendations</span></div>
+   <div class="arrow">↺</div>
+   <div class="loop">Validated findings feed the next PRE configuration cycle. Runtime integration is a later, separately governed extension.</div>
+  </div>
+ </div>
+</section>
+
+<section id="architecture">
+ <div class="kicker">05 · Proposed system architecture</div>
+ <h2>Proposed architecture</h2>
+ <p class="lead">The system separates measurement, investigation and improvement. Each stage has a clear responsibility and passes structured evidence to the next stage. The exact storage schema, service boundaries and APIs are intentionally left for the implementation plan.</p>
+ <div class="diagram">
+  <div class="flow">
+   <div class="node dark"><strong>Existing platform data and capabilities</strong><span>Workflow definitions/versions · Enrollments · Events · Step history · Call outcomes/topics · Relevant customer context</span></div>
+   <div class="arrow">↓</div>
+   <div class="node blue"><strong>1. Data preparation and scope selection</strong><span>Select workflow + time window + cohort; normalize and validate records; preserve links to source evidence</span></div>
+   <div class="arrow">↓</div>
+   <div class="node blue"><strong>2. Analytics Engine · What happened?</strong><span>Compute goal achievement, completion, path distribution, node drop-offs, retries, latency, errors, cohort/version differences</span></div>
+   <div class="arrow">↓</div>
+   <div class="node"><strong>Observation and investigation gate</strong><span>Check sample size, materiality, persistence, novelty and whether the issue is already being investigated</span></div>
+   <div class="branch">
+    <div class="node"><strong>No investigation needed</strong><span>Store/update metrics; wait for new evidence or next analysis cycle</span></div>
+    <div class="node green pulse"><strong>Investigation warranted</strong><span>Create a scoped diagnostic task with observation and evidence references</span></div>
+   </div>
+   <div class="arrow">↓</div>
+   <div class="node green"><strong>3. Diagnostic Engine · Why might it be happening?</strong><span>LLM agent plans the investigation and chooses relevant approved tools; tools execute deterministically and return evidence</span></div>
+   <div class="arrow">↻</div>
+   <div class="loop">Agent ↔ Tool Registry / Tool Execution ↔ Evidence results. The agent can investigate further, stop, or report insufficient evidence.</div>
+   <div class="arrow">↓</div>
+   <div class="node dark"><strong>Workflow Intelligence findings</strong><span>Performance insights · Evidence-backed explanations · Confidence and limitations · Improvement recommendations</span></div>
+  </div>
+ </div>
+ <div class="callout"><strong>Important:</strong> Analytics can run regularly without an LLM. The diagnostic agent is invoked only when an observation warrants investigation. A diagnostic investigation can involve multiple bounded LLM/tool iterations, but it is still one investigation at the selected scope — not one agent per enrollment.</div>
+</section>
+
+<section id="approaches">
+ <div class="kicker">06 · Architecture alternatives</div>
+ <h2>Two ways to build Workflow Intelligence</h2>
+ <p class="lead">Both approaches can consume the same source data and produce findings. Their main difference is who decides the investigation path: predefined application logic or an adaptive agent.</p>
+ <div class="grid g2">
+  <div class="card">
+   <span class="tag amber">Approach A</span>
+   <h3>Rule-Based Workflow Intelligence</h3>
+   <p><strong>Investigation paths are explicitly designed in application logic.</strong></p>
+   <div class="diagram" style="padding:14px;box-shadow:none">
+    <div class="flow">
+     <div class="node blue"><strong>Analytics observation</strong><span>e.g. conversion declined</span></div><div class="arrow">↓</div>
+     <div class="node"><strong>Rule / condition matching</strong><span>if retry drop-off rises → run retry analysis</span></div><div class="arrow">↓</div>
+     <div class="node"><strong>Predefined investigation sequence</strong><span>retry metrics → time comparison → result</span></div><div class="arrow">↓</div>
+     <div class="node"><strong>Rule-based recommendation mapping</strong><span>if pattern X → suggest option Y</span></div>
+    </div>
+   </div>
+   <h4>Advantages</h4>
+   <ul><li>Predictable, testable and easier to constrain.</li><li>Low and predictable LLM cost; can run without LLM.</li><li>Good for known, stable and repetitive diagnostic patterns.</li></ul>
+   <h4>Limitations</h4>
+   <ul><li>Investigation paths must be anticipated and maintained.</li><li>Interacting causes and unfamiliar patterns are difficult to handle.</li><li>New cases require new rules and mappings.</li><li>Can become a large collection of analytics checks rather than adaptive diagnosis.</li></ul>
+   <div class="callout amber"><strong>Risk:</strong> the system may identify what changed, but struggle to investigate an unexpected combination of factors without another predefined rule.</div>
+  </div>
+  <div class="card">
+   <span class="tag green">Approach B</span>
+   <h3>Agent-Based Workflow Intelligence</h3>
+   <p><strong>An LLM agent dynamically chooses which approved evidence to gather and what to investigate next.</strong></p>
+   <div class="diagram" style="padding:14px;box-shadow:none">
+    <div class="flow">
+     <div class="node blue"><strong>Analytics observation</strong><span>e.g. conversion declined</span></div><div class="arrow">↓</div>
+     <div class="node green"><strong>LLM diagnostic agent</strong><span>reviews observation and available tools</span></div><div class="arrow">↓</div>
+     <div class="node"><strong>Agent selects investigation tool</strong><span>cohort comparison, retry history, version comparison…</span></div><div class="arrow">↻</div>
+     <div class="node"><strong>Evidence returned to agent</strong><span>agent decides whether more evidence is needed</span></div><div class="arrow">↓</div>
+     <div class="node"><strong>Structured findings</strong><span>evidence, hypotheses, confidence, limitations</span></div>
+    </div>
+   </div>
+   <h4>Advantages</h4>
+   <ul><li>Can adapt the investigation to intermediate findings.</li><li>Can combine evidence across different workflow dimensions.</li><li>Handles less predictable diagnostic questions better.</li><li>New tools can expand capability without hardcoding every path.</li></ul>
+   <h4>Limitations</h4>
+   <ul><li>LLM cost and latency vary with investigation complexity.</li><li>Requires strict tool permissions, budgets and output validation.</li><li>Must prevent unsupported causal claims or repetitive investigation loops.</li><li>Needs evaluation against known cases to establish reliability.</li></ul>
+   <div class="callout green"><strong>Key idea:</strong> predefined tools are acceptable; predefined investigation sequences for every possible issue are not required. The agent selects tools dynamically within controlled boundaries.</div>
+  </div>
+ </div>
+ <h3 style="margin-top:22px">Direct comparison</h3>
+ <table>
+  <thead><tr><th>Dimension</th><th>Rule-based</th><th>Agent-based</th></tr></thead>
+  <tbody>
+   <tr><td>Who chooses what to investigate?</td><td>Predefined rules</td><td>Agent, using tool descriptions and evidence</td></tr>
+   <tr><td>Investigation flow</td><td>Mostly fixed</td><td>Adaptive and iterative</td></tr>
+   <tr><td>Unfamiliar patterns</td><td>Needs new rules</td><td>Can explore using existing tools, within limits</td></tr>
+   <tr><td>Predictability</td><td>High</td><td>Variable; must be bounded and evaluated</td></tr>
+   <tr><td>LLM dependency</td><td>Optional or none</td><td>Core to diagnosis</td></tr>
+   <tr><td>Best fit</td><td>Known checks and deterministic decisions</td><td>Multi-factor investigation and evidence synthesis</td></tr>
+  </tbody>
+ </table>
+</section>
+
+<section id="recommended">
+ <div class="kicker">07 · Recommended direction</div>
+ <h2>Recommended architecture: analytics + agent-driven diagnosis</h2>
+ <p class="lead">Use deterministic analytics for measurement and observation detection, and an agent for adaptive investigation. The diagnostic findings can include evidence-backed improvement recommendations.</p>
+ <div class="grid g2">
+  <div class="card"><span class="tag blue">Deterministic</span><h3>Analytics Engine</h3><p>Calculates metrics, compares cohorts, applies thresholds, validates sample sizes and detects observations.</p><p class="small"><strong>No LLM needed for calculations.</strong></p></div>
+  <div class="card"><span class="tag green">Agent-driven</span><h3>Diagnostic Engine</h3><p>Agent chooses tools and investigation sequence; controlled tools fetch evidence; the agent interprets returned evidence.</p><p class="small"><strong>LLM used selectively for investigation.</strong></p></div>
+
+ </div>
+ <h3 style="margin-top:22px">Diagnostic Engine: how agentic reasoning stays controlled</h3>
+ <div class="two-col">
+  <div class="card">
+   <h4>Shared tool capabilities</h4>
+   <ul>
+    <li>Retrieve workflow structure and version information.</li>
+    <li>Inspect node execution history and drop-offs.</li>
+    <li>Compare cohorts, time windows and workflow versions.</li>
+    <li>Inspect outcome distributions and retry behavior.</li>
+    <li>Analyze timing, duration and execution details.</li>
+   </ul>
+   <p class="small">These are conceptual tool capabilities, not confirmed API names.</p>
+  </div>
+  <div class="card">
+   <h4>Agent control and safety</h4>
+   <ul>
+    <li>Allowlisted tools with strict input/output schemas.</li>
+    <li>Tenant, merchant, workflow and time-window scope enforcement.</li>
+    <li>Limits on iterations, tool calls, data volume, tokens and runtime.</li>
+    <li>Read-only investigations for the MVP.</li>
+    <li>Evidence references, provenance and auditable tool calls.</li>
+    <li>Stop when evidence is sufficient or unavailable; report uncertainty.</li>
+   </ul>
+  </div>
+ </div>
+ <div class="callout green"><strong>Why this is intelligence:</strong> the platform does more than display metrics. It identifies an outcome gap, adaptively investigates relevant evidence, develops and qualifies explanations, and identifies evidence-backed opportunities to improve outcomes.</div>
+</section>
+
+<section id="example">
+ <div class="kicker">08 · End-to-end example</div>
+ <h2>Example: Flipkart COD confirmation workflow</h2>
+ <p class="lead">The following figures and observations are illustrative, not actual merchant data. They demonstrate how the proposed architecture would work without assuming a fixed diagnostic path.</p>
+ <div class="card">
+  <h3>Workflow being studied</h3>
+  <div class="diagram" style="box-shadow:none">
+   <div class="flow">
+    <div class="node blue"><strong>Order created / enrollment</strong><span>Customer enters COD confirmation workflow</span></div><div class="arrow">↓</div>
+    <div class="node"><strong>Prechecks</strong><span>Validate whether the call should be initiated</span></div><div class="arrow">↓</div>
+    <div class="node"><strong>Initial call</strong><span>Customer response and call outcome captured</span></div><div class="arrow">↓</div>
+    <div class="node"><strong>Retry decision / retry attempts</strong><span>Timing and retry path depend on workflow configuration</span></div><div class="arrow">↓</div>
+    <div class="node green"><strong>Configured workflow goal</strong><span>Order confirmed / cancelled / other configured outcome</span></div>
+   </div>
+  </div>
+ </div>
+ <h3 style="margin-top:22px">Step 1 — Existing call evaluation is already completed</h3>
+ <p>After an individual call, existing topic and outcome evaluation produces call-level results. Those results are stored with the relevant call/execution context. Workflow Intelligence consumes them; it does not re-run the same topic or outcome evaluation for every call.</p>
+ <h3>Step 2 — Analytics measures the workflow population</h3>
+ <div class="grid g4">
+  <div class="card"><div class="small">Enrollments</div><div class="metric">100,000</div></div>
+  <div class="card"><div class="small">Confirmed</div><div class="metric">52,000</div></div>
+  <div class="card"><div class="small">Goal rate</div><div class="metric">52%</div></div>
+  <div class="card"><div class="small">Comparison baseline</div><div class="metric">60%</div></div>
+ </div>
+ <p class="small">Illustrative observation: the workflow goal rate is 8 percentage points below the comparison baseline. Analytics also calculates path, node, retry, outcome and cohort distributions.</p>
+ <h3>Step 3 — The investigation gate decides whether to investigate</h3>
+ <p>Suppose the decline is material, the sample size is sufficient, and the issue is not already being investigated. Analytics creates a scoped observation for the Diagnostic Engine. If the change is small, the sample is insufficient or the same issue is already open, metrics can simply be updated without starting another investigation.</p>
+ <h3>Step 4 — Agent investigates dynamically</h3>
+ <div class="diagram">
+  <div class="flow">
+   <div class="node green"><strong>Agent receives observation</strong><span>Goal rate declined; workflow, time window, baseline and evidence references supplied</span></div>
+   <div class="arrow">↓</div>
+   <div class="node"><strong>First choice: inspect where the decline is concentrated</strong><span>Use outcome and node/path distribution tools</span></div>
+   <div class="arrow">↓</div>
+   <div class="node"><strong>Evidence: second retry stage shows a larger decline</strong><span>Agent decides the next useful question rather than following a fixed script</span></div>
+   <div class="arrow">↓</div>
+   <div class="node"><strong>Next choice: compare retry cohorts and time windows</strong><span>Inspect BUSY vs NO_ANSWER, timing and historical behavior</span></div>
+   <div class="arrow">↓</div>
+   <div class="node"><strong>Further choice: compare workflow versions</strong><span>Check whether a version/configuration change coincides with the observed pattern</span></div>
+   <div class="arrow">↓</div>
+   <div class="node purple"><strong>Evidence-backed diagnostic output</strong><span>Findings, hypotheses, confidence, evidence references and limitations</span></div>
+  </div>
+ </div>
+ <div class="callout amber"><strong>Correctness rule:</strong> if the evidence only shows that a retry cohort has lower conversion, the system must report an association, not claim that retry timing caused the decline. A causal claim needs stronger evidence, such as a suitable controlled comparison.</div>
+</section>
+
+<section id="triggers">
+ <div class="kicker">09 · Invocation, cadence and cost</div>
+ <h2>When does the system run?</h2>
+ <p class="lead">The system should not invoke an LLM after every raw event, call or enrollment. Data is collected continuously; analytics runs on a schedule or incrementally; diagnostics runs only when there is something meaningful to investigate.</p>
+ <div class="timeline">
+  <div class="card"><span class="tag blue">Continuous</span><h3>Data capture</h3><p class="small">Existing runtime persists events, enrollments, execution and evaluation results. No intelligence LLM call.</p></div>
+  <div class="card"><span class="tag blue">Periodic</span><h3>Analytics</h3><p class="small">Hourly or configured intervals; compute metrics and detect observations deterministically.</p></div>
+  <div class="card"><span class="tag green">Conditional</span><h3>Diagnostics</h3><p class="small">Start an LLM investigation when an observation passes the investigation gate.</p></div>
+
+ </div>
+ <h3 style="margin-top:22px">What qualifies as an investigation trigger?</h3>
+ <p>Criteria should be configurable and validated, not treated as universal hard-coded thresholds. Examples:</p>
+ <ul>
+  <li>A material change in a configured workflow goal metric.</li>
+  <li>A sustained increase in drop-offs or execution failures.</li>
+  <li>A notable change in retry effectiveness or outcome mix.</li>
+  <li>A newly emerging path or cohort pattern worth understanding.</li>
+  <li>A workflow-version comparison that shows a meaningful difference.</li>
+ </ul>
+ <p>Use sample-size checks, minimum effect/materiality, persistence, novelty and duplicate-investigation suppression. A small fluctuation should not automatically create an LLM investigation.</p>
+ <h3>Illustrative daily cycle</h3>
+ <table>
+  <thead><tr><th>Time</th><th>System behavior</th><th>LLM?</th></tr></thead>
+  <tbody>
+   <tr><td>Throughout day</td><td>Existing workflow executions and evaluations are persisted.</td><td>No</td></tr>
+   <tr><td>Hourly</td><td>Analytics updates workflow metrics and checks for significant observations.</td><td>No</td></tr>
+   <tr><td>When triggered</td><td>Agent investigates an observation using bounded tools.</td><td>Yes, selectively</td></tr>
+   <tr><td>As needed</td><td>Consolidate meaningful findings and recommendations.</td><td>Only when additional reasoning is useful</td></tr>
+  </tbody>
+ </table>
+ <h3>Cost model</h3>
+ <div class="grid g2">
+  <div class="card"><h4>Not proportional to enrollment count</h4><p class="small">100,000 enrollments do not mean 100,000 agent calls. Analytics processes the population; an investigation is triggered for a meaningful workflow-level observation.</p></div>
+  <div class="card"><h4>Cost depends on investigation complexity</h4><p class="small">Main drivers are number of investigations, LLM reasoning iterations, tool calls, context size, token usage and model choice.</p></div>
+ </div>
+ <p><strong>Cost controls:</strong> deterministic analytics first; deduplicate observations; bound tool calls/iterations and data returned; reuse prior findings where the evidence has not materially changed; invoke diagnostics selectively. Actual cost should be benchmarked using representative merchant workloads before committing to an estimate.</p>
+</section>
+
+
+
+<section id="decisions">
+ <div class="kicker">10 · Architecture review</div>
+ <h2>Decisions to align on before implementation planning</h2>
+ <p class="lead">This document is intended to get agreement on the architectural direction. It is not yet a technical implementation plan.</p>
+ <ol>
+  <li><strong>Scope:</strong> agree that the first release is workflow-level, post-execution intelligence.</li>
+  <li><strong>Architecture:</strong> agree on deterministic analytics and agent-driven diagnostics that produce evidence-backed findings and improvement recommendations.</li>
+  <li><strong>Investigation model:</strong> agree that rules determine whether an investigation should start, while the agent can dynamically decide how to investigate.</li>
+  <li><strong>Invocation:</strong> agree that the LLM is not called per event/enrollment and is triggered selectively from meaningful observations.</li>
+  <li><strong>Data ownership:</strong> agree to consume existing execution/evaluation data and avoid rebuilding workflow runtime or Centralised Memory.</li>
+  <li><strong>Safety:</strong> agree on bounded, read-only diagnostic tools for the MVP and evidence-backed findings with explicit uncertainty.</li>
+  <li><strong>Extensibility:</strong> agree to keep shared contracts reusable for future node, customer and merchant scopes without implementing them now.</li>
+ </ol>
+ <div class="callout green"><strong>After architecture review:</strong> prepare the implementation plan covering verified source tables/fields, data retrieval, metric definitions, tool contracts, service boundaries, storage schema, scheduling/triggering, evaluation, rollout and cost benchmarking.</div>
+</section>
+
+</main>
+<footer><div class="wrap">
+ <strong>Workflow Intelligence — Architecture Proposal</strong>
+ <p>Prepared for architecture discussion. Examples are illustrative; exact database objects and implementation details require repository and schema verification.</p>
+ <p>Decision sought: agreement on the system shape and boundaries before implementation planning.</p>
+</div></footer>
+</body>
+</html>

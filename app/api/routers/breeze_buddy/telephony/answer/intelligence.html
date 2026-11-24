@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Workflow Intelligence — Architecture Proposal</title>
+<style>
+:root{
+ --ink:#182536;--muted:#637286;--line:#dce4ec;--paper:#fff;--canvas:#f3f6fa;
+ --navy:#10263e;--blue:#2864a0;--teal:#167c80;--mint:#eaf6f3;
+ --bluewash:#edf4fb;--amber:#9a5a12;--amberwash:#fff5e7;
+ --shadow:0 16px 42px rgba(20,42,67,.08);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--canvas);color:var(--ink);font:15px/1.65 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+a{color:var(--blue);text-decoration:none}
+a:hover{text-decoration:underline}
+.shell{max-width:1180px;margin:auto;padding:34px 28px 70px}
+.hero{background:linear-gradient(125deg,#10263e 0%,#173e5e 62%,#176b70 100%);color:#fff;border-radius:24px;padding:54px 58px;position:relative;overflow:hidden;box-shadow:var(--shadow)}
+.hero:after{content:"";position:absolute;width:430px;height:430px;border:1px solid #ffffff22;border-radius:50%;right:-130px;top:-190px;box-shadow:0 0 0 42px #ffffff0b,0 0 0 90px #ffffff08}
+.eyebrow{font-size:11px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#9ed8d5}
+.hero h1{font-size:clamp(34px,5vw,54px);line-height:1.08;letter-spacing:-.04em;margin:17px 0 15px;max-width:760px}
+.hero p{font-size:17px;color:#d8e6ef;max-width:760px;margin:0}
+.hero-meta{display:flex;gap:10px;flex-wrap:wrap;margin-top:28px}
+.pill{border:1px solid #ffffff3d;background:#ffffff12;border-radius:999px;padding:6px 11px;font-size:12px;color:#e8f2f7}
+.layout{display:grid;grid-template-columns:245px minmax(0,1fr);gap:28px;margin-top:28px;align-items:start}
+nav{position:sticky;top:20px;background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:0 5px 20px #20354c08}
+nav strong{display:block;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:2px 8px 12px}
+nav a{display:block;padding:7px 9px;border-radius:8px;color:#42546a;font-size:13px}
+nav a:hover{background:var(--bluewash);text-decoration:none;color:var(--blue)}
+main{min-width:0}
+section,.intro-card{background:var(--paper);border:1px solid var(--line);border-radius:18px;padding:30px 34px;margin-bottom:20px;box-shadow:0 5px 20px #20354c06}
+.intro-card{border-left:4px solid var(--teal);background:linear-gradient(110deg,#fff,#f6fbfa)}
+.kicker{font-size:11px;letter-spacing:.13em;text-transform:uppercase;font-weight:800;color:var(--teal);margin-bottom:7px}
+h2{font-size:25px;line-height:1.2;letter-spacing:-.025em;margin:0 0 15px;color:var(--navy)}
+h3{font-size:16px;margin:23px 0 8px;color:#234a6b}
+p{margin:8px 0 13px}
+.lead{font-size:17px;line-height:1.65;color:#34465a}
+.small{font-size:12px;color:var(--muted)}
+.callout{padding:16px 18px;border-radius:12px;background:var(--bluewash);border:1px solid #d8e6f4;margin:15px 0}
+.callout.teal{background:var(--mint);border-color:#d2eae4}
+.callout.warn{background:var(--amberwash);border-color:#f2dfc5}
+.callout strong{color:var(--navy)}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.card{border:1px solid var(--line);border-radius:13px;padding:16px;background:#fff}
+.card .num{font-size:11px;color:var(--teal);font-weight:800;letter-spacing:.1em}
+.card h3{margin:5px 0 6px;font-size:15px}
+.card p{font-size:13px;color:var(--muted);margin:0}
+table{width:100%;border-collapse:separate;border-spacing:0;margin:13px 0 17px;font-size:13px}
+th{background:var(--navy);color:#fff;text-align:left;font-size:11px;letter-spacing:.04em;text-transform:uppercase;padding:11px 12px}
+th:first-child{border-radius:9px 0 0 0}th:last-child{border-radius:0 9px 0 0}
+td{padding:11px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+tr:nth-child(even) td{background:#f8fafc}
+td:first-child{font-weight:650;color:#243b53}
+ul,ol{padding-left:21px;margin:9px 0 14px}
+li{margin:5px 0}
+.flow{display:flex;flex-direction:column;align-items:center;gap:7px;margin:20px auto;max-width:690px}
+.flowbox{width:100%;border:1px solid var(--line);border-radius:12px;padding:13px 17px;text-align:center;background:#fff}
+.flowbox b{display:block;color:var(--navy)}
+.flowbox span{display:block;font-size:12px;color:var(--muted)}
+.flowbox.source{background:#f0f5fa;border-color:#d9e4ef}
+.flowbox.engine{background:#edf7f5;border-color:#d0e8e1}
+.flowbox.output{background:#f3f6fb;border-color:#dce4ed}
+.arrow{color:#7890a6;font-size:19px;line-height:1}
+.code{background:#11253a;color:#e2edf5;padding:17px 19px;border-radius:12px;overflow:auto;font:12px/1.7 ui-monospace,SFMono-Regular,Consolas,monospace;white-space:pre-wrap}
+.tag{display:inline-block;border-radius:999px;padding:3px 8px;font-size:11px;font-weight:700;background:#eaf1f8;color:#315d83}
+footer{color:var(--muted);font-size:12px;text-align:center;padding:22px}
+@media(max-width:850px){.layout{grid-template-columns:1fr}nav{position:static;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px}nav strong{grid-column:1/-1}.hero{padding:38px 30px}}
+@media(max-width:600px){.shell{padding:14px 12px 40px}.hero{border-radius:17px;padding:30px 23px}.hero p{font-size:15px}section,.intro-card{padding:22px 19px}.grid2,.grid3{grid-template-columns:1fr}nav{grid-template-columns:1fr 1fr}table{font-size:12px}td,th{padding:9px 8px}}
+@media print{body{background:#fff}.shell{max-width:none;padding:0}.hero{border-radius:0;box-shadow:none;print-color-adjust:exact}.layout{display:block}nav{display:none}section,.intro-card{box-shadow:none;break-inside:avoid;border-radius:0}a{color:inherit}}
+</style>
+</head>
+<body>
+<div class="shell">
+<header class="hero">
+  <h1>Workflow Intelligence</h1>
+  <p>End-to-end architecture proposal: understand workflow performance, find where business outcomes are lost, explain the evidence, recommend improvements, and measure what happened next.</p>
+  <div class="hero-meta"><span class="pill">Architecture proposal</span></div>
+</header>
+
+<div class="layout">
+<nav aria-label="Contents">
+<strong>On this page</strong>
+<a href="#summary">01 · Executive summary</a>
+<a href="#clairvoyance">02 · Clairvoyance fit</a>
+<a href="#architecture">03 · Architecture flow</a>
+<a href="#foundation">04 · Data foundation</a>
+<a href="#analytics">05 · Analytics & storage</a>
+<a href="#granularity">06 · Hourly + daily</a>
+<a href="#diagnostics">07 · Diagnostics</a>
+<a href="#recommend">08 · Recommendations</a>
+<a href="#jobs">09 · Jobs & lifecycle</a>
+<a href="#api">10 · API & UI</a>
+<a href="#guardrails">11 · Guardrails</a>
+<a href="#delivery">12 · Delivery sequence</a>
+</nav>
+
+<main>
+<div class="intro-card" id="summary">
+<div class="kicker">The product definition</div>
+<p class="lead"><b>For each workflow, the system studies its runs, identifies where outcomes are being lost and why, suggests changes, and shows whether those changes worked.</b></p>
+<p>This is more than a metrics dashboard. The first product surface should be a Workflow Intelligence page within each workflow. A conversational assistant can be added later as another interface to the same capabilities.</p>
+</div>
+
+<section>
+<div class="kicker">01 · Direction</div><h2>Executive summary</h2>
+<div class="grid2">
+ <div class="card"><div class="num">01 / UNDERSTAND</div><h3>Execution history</h3><p>Use real workflow runs, versions, node visits, transitions, errors and business outcomes.</p></div>
+ <div class="card"><div class="num">02 / MEASURE</div><h3>Performance analytics</h3><p>Calculate workflow, node, path, time and version performance.</p></div>
+ <div class="card"><div class="num">03 / EXPLAIN</div><h3>Monitoring & diagnosis</h3><p>Detect meaningful changes and investigate likely contributors with reusable checks.</p></div>
+ <div class="card"><div class="num">04 / IMPROVE</div><h3>Recommendation & evaluation</h3><p>Suggest supported changes, record approval and measure the resulting business impact.</p></div>
+</div>
+</section>
+
+<section id="clairvoyance">
+<div class="kicker">02 · Existing system</div><h2>Current System</h2>
+<table><thead><tr><th>Existing area</th><th>Role in Workflow Intelligence</th><th>Boundary</th></tr></thead><tbody>
+<tr><td><code>record</code></td><td>Raw merchant/customer events and event schema/catalog.</td><td>Reuse ingestion and read contracts. Do not duplicate raw event payloads.</td></tr>
+<tr><td><code>outreach</code></td><td>Workflow definitions, published versions, enrollments and step execution history.</td><td>Reuse as execution source of truth. Request additional read contracts if needed.</td></tr>
+<tr><td><code>identity</code></td><td>Customer identity and supported customer context.</td><td>Access through owning module contracts only when required.</td></tr>
+<tr><td>CRM DB conventions</td><td>PostgreSQL, asyncpg, SQL query builders, tenant scoping and migrations.</td><td>Follow existing patterns; intelligence owns only its own tables.</td></tr>
+<tr><td>Worker composition</td><td>Scheduled/background processing.</td><td>Register jobs through existing worker composition where appropriate.</td></tr>
+</tbody></table>
+<div class="callout warn"><b>Proposed module:</b> a focused <code>app/crm/intelligence/</code> module (or repository-approved equivalent) owns derived intelligence data and logic. It reads through <code>record</code>, <code>outreach</code> and, where needed, <code>identity</code> contracts.</div>
+</section>
+
+<section id="architecture">
+<div class="kicker">03 · System view</div><h2>End-to-end architecture</h2>
+<p>Execution facts are written by existing CRM modules. Intelligence consumes those facts, computes reusable aggregates, investigates issues and stores its own outputs.</p>
+<div class="flow">
+ <div class="flowbox source"><b>Merchant & customer events</b><span>Event stream · outcome events · delivery events</span></div><div class="arrow">↓</div>
+ <div class="flowbox source"><b>Existing CRM storage</b><span><code>record</code>: events · <code>outreach</code>: workflow, enrollment, version, step history</span></div><div class="arrow">↓</div>
+ <div class="flowbox"><b>Analytics computation</b><span>Reusable SQL/query logic · hourly and daily buckets</span></div><div class="arrow">↓</div>
+ <div class="flowbox"><b>Analytics aggregates</b><span>Workflow · node · path · segment · version metrics</span></div><div class="arrow">↓</div>
+ <div class="flowbox engine"><b>Monitoring & diagnostic engine</b><span>Problem trigger · playbook · orchestrator · evidence evaluator</span></div><div class="arrow">↓</div>
+ <div class="flowbox engine"><b>Findings & recommendations</b><span>Evidence-backed issue · suggested action · approval state</span></div><div class="arrow">↓</div>
+ <div class="flowbox"><b>Change tracking & evaluation</b><span>New workflow version · outcome measurement · guardrails</span></div><div class="arrow">↓</div>
+ <div class="flowbox output"><b>Workflow Intelligence UI</b><span>Performance · where outcomes are lost · why · what to change · did it work?</span></div>
+</div>
+</section>
+
+<section id="foundation">
+<div class="kicker">04 · Source facts</div><h2>Execution and business context foundation</h2>
+<p>Do not create a second execution ledger. Reuse existing records and ensure the intelligence module can access the following facts through stable contracts.</p>
+<table><thead><tr><th>Fact group</th><th>Required information</th></tr></thead><tbody>
+<tr><td>Workflow identity</td><td><code>merchant_id</code>, workflow ID, name/status and defined purpose/goal.</td></tr>
+<tr><td>Version context</td><td>Published version used by each run. Preserve the admission/execution version even if the workflow changes later.</td></tr>
+<tr><td>Run / enrollment</td><td>Run or enrollment ID, customer reference where permitted, entry/exit time, terminal status and exit reason.</td></tr>
+<tr><td>Node execution</td><td>Node ID/type, arrival/leave timestamps, outcome, next node, attempts and available error information.</td></tr>
+<tr><td>Business outcome</td><td>Goal event/key, outcome timestamp, value/revenue if available, attribution window and explicit run-to-outcome linkage.</td></tr>
+<tr><td>Dimensions</td><td>Approved platform/channel and customer segment dimensions that can be safely aggregated.</td></tr>
+</tbody></table>
+<h3>Data correctness requirements</h3>
+<ul>
+<li>Make ingestion and aggregation idempotent; deduplicate events and handle late arrivals.</li>
+<li>Do not assume every merchant event belongs to a workflow. Define explicit run/customer/time-window attribution rules.</li>
+<li>Distinguish workflow completion from business conversion. A run can complete without achieving its business goal.</li>
+<li>Missing historical node history means <em>unknown</em>, not zero drop-off.</li>
+<li>Use the workflow version actually used by each execution. Version comparisons are unreliable otherwise.</li>
+</ul>
+</section>
+
+<section id="analytics">
+<div class="kicker">05 · Analytics storage</div><h2>What gets calculated and stored?</h2>
+<p>Analytics are derived, rebuildable summaries. Source execution records remain the source of truth. </p>
+<table><thead><tr><th>Aggregate family</th><th>Grain / dimensions</th><th>Core measures</th></tr></thead><tbody>
+<tr><td>Workflow metrics</td><td>Merchant + workflow + version + time bucket</td><td>Entries, eligible runs, completions, goal conversions, conversion rate, attributable value, exit reasons.</td></tr>
+<tr><td>Node metrics</td><td>Workflow + version + node + time bucket</td><td>Arrivals, completions, failures, retries, drop-offs, median/p95 dwell time.</td></tr>
+<tr><td>Path metrics</td><td>Workflow + version + observed transition/path + bucket</td><td>Run count, path share, conversion rate and path duration.</td></tr>
+</tbody></table>
+<h3>Suggested logical tables</h3>
+<table><thead><tr><th>Logical table</th><th>What it stores</th></tr></thead><tbody>
+<tr><td><code>crm_workflow_metrics</code></td><td>Workflow measures; merchant, workflow, version, granularity, bucket start, counts, conversions, value, computed time.</td></tr>
+<tr><td><code>crm_workflow_node_metrics</code></td><td>Node-level arrivals, completions, failures, retries, drop-offs and duration summaries.</td></tr>
+<tr><td><code>crm_workflow_path_metrics</code></td><td>Observed transitions or bounded common paths, run counts and outcome rates.</td></tr>
+<tr><td><code>crm_workflow_diagnostic_run</code></td><td>Each investigation: trigger, scope, requested period, status and playbook version.</td></tr>
+<tr><td><code>crm_workflow_diagnostic_finding</code></td><td>Issue, affected scope, observations, evidence references, strength and limitations.</td></tr>
+<tr><td><code>crm_workflow_recommendation</code></td><td>Suggested action, target, rationale, expected metric, guardrails and status.</td></tr>
+<tr><td><code>crm_workflow_recommendation_evaluation</code></td><td>Evaluation window, comparison method, baseline/observed outcome and result.</td></tr>
+<tr><td><code>crm_workflow_change_link</code></td><td>Links an approved recommendation to actual workflow version/change and effective time.</td></tr>
+</tbody></table>
+</section>
+
+<section id="granularity">
+<div class="kicker">06 · Time resolution</div><h2>Hourly and daily analytics</h2>
+<div class="callout teal"><b>Both are required in the proposed design.</b> They are two time granularities over the same underlying facts—not separate analytics engines or separate diagnostic systems.</div>
+<table><thead><tr><th>Granularity</th><th>Purpose</th><th>Example</th></tr></thead><tbody>
+<tr><td><span class="tag">Hourly</span></td><td>Recent monitoring, faster detection and investigation of short-lived changes.</td><td>A node's delivery failure rate rises sharply in the afternoon.</td></tr>
+<tr><td><span class="tag">Daily</span></td><td>Historical trends, stable baselines, longer-term reporting and comparisons.</td><td>Workflow conversion declines over seven days compared with a previous period.</td></tr>
+</tbody></table>
+<h3>Storage convention</h3>
+<p>Use one consistent bucket model. A single aggregate table with <code>bucket_granularity</code> and <code>bucket_start</code>, or separate hourly/daily tables, can both work. Avoid a separate table for every metric.</p>
+<div class="code">merchant_id
+workflow_id
+workflow_version_id
+bucket_granularity   // 'hour' or 'day'
+bucket_start
+entries
+conversions
+failures
+computed_at</div>
+<ul>
+<li>Compare like with like where possible: same hour-of-day/day-of-week, similar cohort and consistent attribution window.</li>
+<li>Apply minimum-volume/sample-size safeguards. Label low-volume results as insufficient evidence.</li>
+<li>Reprocess a bounded recent window to account for late-arriving events.</li>
+<li>Retain detailed hourly buckets for a shorter period and daily rollups longer. Set exact retention after measuring volume and investigation needs.</li>
+</ul>
+</section>
+
+<section id="diagnostics">
+<div class="kicker">07 · Investigation</div><h2>Monitoring and diagnostic engine</h2>
+<p>One shared diagnostic capability serves all workflows. Do not implement custom diagnostic code for every workflow or node. Reuse a small set of analysis operations and map problem types to playbooks.</p>
+<table><thead><tr><th>Reusable operation</th><th>Question it answers</th></tr></thead><tbody>
+<tr><td>Time-series / baseline</td><td>Did a metric change unusually versus a suitable historical baseline?</td></tr>
+<tr><td>Workflow / node funnel</td><td>At which step are runs or outcomes being lost?</td></tr>
+<tr><td>Path / transition</td><td>Which execution paths are associated with better or worse outcomes?</td></tr>
+<tr><td>Error / retry analysis</td><td>Did errors, delivery failures or retries increase?</td></tr>
+<tr><td>Duration / bottleneck</td><td>Did time spent at a node or between nodes increase?</td></tr>
+<tr><td>Version comparison</td><td>Did performance change between workflow versions or variants?</td></tr>
+<tr><td>Contribution analysis</td><td>Which segments, nodes or paths account for the largest share of the observed change?</td></tr>
+</tbody></table>
+<h3>How a diagnostic investigation runs</h3>
+<ol>
+<li><b>Trigger:</b> scheduled monitor, dashboard request or explicit user investigation.</li>
+<li><b>Playbook:</b> a problem type (for example <code>goal_conversion_drop</code>) defines initial operations, required data and conditional follow-ups.</li>
+<li><b>Orchestrator:</b> executes approved, bounded, read-only operations and selects follow-ups from structured results.</li>
+<li><b>Evidence evaluator:</b> checks sample size, baseline suitability, completeness, effect size and alternative explanations.</li>
+<li><b>Finding writer:</b> persists the issue, evidence, limitations and suggested next step.</li>
+</ol>
+<h3>Example playbook: goal conversion drop</h3>
+<div class="code">1. Confirm the conversion change against an appropriate baseline.
+2. Run workflow and node funnel analysis.
+3. Compare relevant segments and execution paths.
+4. If failures increased, run error/retry analysis.
+   If dwell time increased, run duration analysis.
+   If a new version was published, compare versions.
+5. Rank observed contributors and persist evidence + caveats.</div>
+<div class="callout"><b>Keep the first orchestrator deterministic.</b> Ordinary application code can route between approved operations. An LLM is optional later; it may help interpret a request or explain structured findings, but it must not generate unrestricted SQL or bypass access controls.</div>
+</section>
+
+<section id="recommend">
+<div class="kicker">08 · Closed loop</div><h2>Recommendations and learning</h2>
+<ol>
+<li><b>Map findings to supported actions.</b> Recommendations must match node types and configuration options that the workflow editor actually supports.</li>
+<li><b>Attach evidence.</b> Include the finding, affected scope, observed metric and evidence strength.</li>
+<li><b>State the expected outcome.</b> Identify the metric expected to improve and guardrails that must not worsen.</li>
+<li><b>Require human approval initially.</b> Do not automatically mutate live workflows in the first version.</li>
+<li><b>Record the actual change.</b> Link the decision to the newly published workflow version and effective time.</li>
+<li><b>Evaluate after a suitable window.</b> Prefer randomized control/A-B testing where supported.</li>
+<li><b>Store the result.</b> Positive, negative, inconclusive or not implemented. Use outcomes to improve recommendation prioritization.</li>
+</ol>
+<div class="callout warn"><b>Evidence discipline:</b> A before/after improvement does not prove the recommendation caused it. Label observational comparisons clearly and account for traffic mix, seasonality, concurrent changes and attribution windows.</div>
+</section>
+
+<section id="jobs">
+<div class="kicker">09 · Background processing</div><h2>End-to-end job lifecycle</h2>
+<table><thead><tr><th>When</th><th>Job / action</th><th>Reads</th><th>Writes</th></tr></thead><tbody>
+<tr><td>On event / execution</td><td>Existing CRM ingestion and workflow runtime record facts.</td><td>Incoming event and workflow context.</td><td>Existing raw event and execution records.</td></tr>
+<tr><td>Hourly schedule</td><td>Compute recent hourly buckets; reprocess recent late-arrival window.</td><td>Source contracts and prior bucket state.</td><td>Hourly aggregate rows.</td></tr>
+<tr><td>Daily schedule</td><td>Compute daily rollups and longer-term comparisons.</td><td>Source facts / hourly summaries.</td><td>Daily aggregate rows.</td></tr>
+<tr><td>Monitoring schedule</td><td>Check core measures against baselines and safeguards.</td><td>Hourly/daily aggregates.</td><td>Diagnostic run request or finding.</td></tr>
+<tr><td>On demand</td><td>Run a bounded playbook for a workflow and time range.</td><td>Aggregates plus required source details.</td><td>Diagnostic run and findings.</td></tr>
+<tr><td>After approval/change</td><td>Link recommendation to published version and effective time.</td><td>Decision and workflow version reference.</td><td>Change link.</td></tr>
+<tr><td>After evaluation window</td><td>Measure outcome and guardrails.</td><td>New aggregates and comparison cohort/version.</td><td>Recommendation evaluation.</td></tr>
+</tbody></table>
+<h3>Operational requirements</h3>
+<ul>
+<li>Jobs are idempotent and retry-safe; use deterministic bucket keys and upserts.</li>
+<li>Use existing worker/cron composition and coordination patterns. Add a new queue only if existing capacity requires it.</li>
+<li>Carry merchant/workflow scope and observability context through every job.</li>
+<li>Bound diagnostic queries by date range, workflow and row/sample limits; use parameterized SQL.</li>
+<li>Record job status, duration, rows processed, late data and errors.</li>
+<li>Version aggregation and diagnostic logic so results can be reproduced and rebuilt.</li>
+</ul>
+</section>
+
+<section id="api">
+<div class="kicker">10 · Product surface</div><h2>API and Workflow Intelligence UI</h2>
+<p>Expose capabilities using existing CRM API conventions. Route names below are illustrative; align them with the current API design.</p>
+<table><thead><tr><th>Example endpoint</th><th>Purpose</th></tr></thead><tbody>
+<tr><td><code>GET /workflows/{id}/intelligence/summary</code></td><td>Current and historical workflow performance.</td></tr>
+<tr><td><code>GET /workflows/{id}/intelligence/nodes</code></td><td>Node funnel, drop-offs, errors and duration.</td></tr>
+<tr><td><code>GET /workflows/{id}/intelligence/findings</code></td><td>Detected issues and investigation results.</td></tr>
+<tr><td><code>POST /workflows/{id}/intelligence/investigations</code></td><td>Request an on-demand diagnostic run.</td></tr>
+<tr><td><code>GET /workflows/{id}/intelligence/recommendations</code></td><td>Evidence-backed suggested changes.</td></tr>
+<tr><td><code>POST /recommendations/{id}/decision</code></td><td>Accept, reject or defer a recommendation.</td></tr>
+<tr><td><code>GET /recommendations/{id}/evaluation</code></td><td>Outcome after the change.</td></tr>
+</tbody></table>
+<div class="grid2">
+ <div class="card"><div class="num">FIRST</div><h3>Workflow Intelligence page</h3><p>Performance overview; node/path breakdown; detected problems and evidence; recommended actions; change and evaluation history.</p></div>
+ <div class="card"><div class="num">LATER / OPTIONAL</div><h3>Conversational assistant</h3><p>Lets users ask questions, but calls the same bounded analytics and investigation APIs. It is an interface, not a second intelligence engine.</p></div>
+</div>
+</section>
+
+<section id="guardrails">
+<div class="kicker">11 · Trust & safety</div><h2>Security, correctness and evidence guardrails</h2>
+<ul>
+<li>Every query, aggregate and finding is merchant-scoped. Never mix merchant data in tables, caches or diagnostics.</li>
+<li>Use approved dimensions and fields; do not expose customer-level details in shared dashboard summaries.</li>
+<li>Read source data through owning module contracts. Intelligence owns and writes only its own tables.</li>
+<li>All SQL is parameterized and bounded. No LLM-generated unrestricted SQL.</li>
+<li>Separate observed fact, statistical association, likely contributor and causal proof in findings.</li>
+<li>Show sample size, date range, baseline and data-quality caveats with every material finding.</li>
+<li>Do not interpret missing data as zero or incomplete history as a confirmed drop-off.</li>
+</ul>
+</section>
+
+<section id="delivery">
+<div class="kicker">12 · Build in dependency order</div><h2>Practical delivery sequence</h2>
+<table><thead><tr><th>Order</th><th>Deliverable</th><th>Exit condition</th></tr></thead><tbody>
+<tr><td>1 · Audit</td><td>Map current event, enrollment, version, step and goal fields; identify gaps in attribution and version semantics.</td><td>Source-of-truth map and approved cross-module contracts.</td></tr>
+<tr><td>2 · Analytics</td><td>Implement workflow/node aggregates with hourly and daily buckets. Add path/segment only where data supports it.</td><td>Metrics reconcile against source samples and are merchant-isolated.</td></tr>
+<tr><td>3 · Diagnose</td><td>Implement one valuable playbook, e.g. goal conversion drop, with deterministic checks.</td><td>Finding is reproducible and includes evidence, sample size and limitations.</td></tr>
+<tr><td>4 · Improve</td><td>Add a small set of actionable recommendations, human approval and version-linked evaluation.</td><td>A workflow change can be traced to a measured result.</td></tr>
+<tr><td>5 · UI</td><td>Expose summary, findings, actions and evaluation in the workflow experience.</td><td>A user can understand and act without a chatbot.</td></tr>
+<tr><td>6 · Optional chat</td><td>Translate questions into approved API/diagnostic calls and explain structured results.</td><td>No arbitrary SQL or unapproved actions; evidence matches the UI.</td></tr>
+</tbody></table>
+</section>
+</main>
+</div>
+</div>
+</body>
+</html>
