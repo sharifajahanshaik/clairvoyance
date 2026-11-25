@@ -18,7 +18,7 @@ from app.crm.outreach.catalog_laws import (
     gather_catalogs as _gather_catalogs,
     goals_against_catalog,
 )
-from app.crm.outreach.db import DbTxn, atomically
+from app.crm.outreach.db import DbTxn, UniqueViolation, atomically
 from app.crm.outreach.db.accessors import (
     enrollment as enrollment_accessor,
     version as version_accessor,
@@ -347,9 +347,15 @@ async def create_workflow(
     problems = validate_definition(definition, catalogs=catalogs)
     if problems:
         raise WorkflowValidationError(problems)
-    return await workflow_accessor.insert_workflow(
-        merchant_id, name, expand_stages(definition), created_by
-    )
+    try:
+        return await workflow_accessor.insert_workflow(
+            merchant_id, name, expand_stages(definition), created_by
+        )
+    except UniqueViolation as e:
+        # 089: one non-archived plan per (merchant, name). The provisioner
+        # that lost the race adopts the plan already there, as it does for
+        # a template of the same name.
+        raise WorkflowNameTaken(name) from e
 
 
 async def update_draft(
@@ -600,3 +606,7 @@ async def count_workflows(merchant_id: str) -> int:
 
 class WorkflowNotFound(Exception):
     pass
+
+
+class WorkflowNameTaken(Exception):
+    """The merchant already has a non-archived plan of this name (089)."""

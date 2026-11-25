@@ -59,6 +59,13 @@ RENAMED_MIGRATIONS = {
     # The journey view merged second, so it takes the new number; the
     # drop-check migration keeps 052.
     "052_create_crm_journey_view.sql": "055_create_crm_journey_view.sql",
+    # 086 triple (three 2026-11-25 merges collided). The eval migration merged
+    # first and keeps 086; the inbox schema and the blacklist scope, merged
+    # after it in that order, take 087 and 088.
+    "086_create_inbox_schema.sql": "087_create_inbox_schema.sql",
+    "086_blacklisted_numbers_merchant_scope.sql": (
+        "088_blacklisted_numbers_merchant_scope.sql"
+    ),
 }
 
 
